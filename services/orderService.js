@@ -500,21 +500,6 @@ const getOrderHistory = async (userId) => {
         include: { product: true }
       }
     },
-    orderBy: { createdAt: "desc" },
-    take: 50
-  });
-};
-
-const getUserCompletedOrders = async (userId) => {
-  return await prisma.order.findMany({
-    where: { userId, status: "Completed" },
-    include: {
-      items: {
-        include: {
-          product: true
-        }
-      }
-    },
     orderBy: { createdAt: "desc" }
   });
 };
