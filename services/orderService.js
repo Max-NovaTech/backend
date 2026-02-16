@@ -504,6 +504,20 @@ const getOrderHistory = async (userId) => {
   });
 };
 
+const getUserCompletedOrders = async (userId) => {
+  return await prisma.order.findMany({
+    where: { userId, status: "Completed" },
+    include: {
+      items: {
+        include: {
+          product: true
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+};
+
 const updateSingleOrderItemStatus = async (itemId, newStatus) => {
   try {
     return await prisma.$transaction(async (tx) => {
