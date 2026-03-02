@@ -103,49 +103,38 @@ const submitCartInner = async (userId, mobileNumber = null) => {
 };
 
 async function getAllOrders(limit = 100, offset = 0) {
-  // Optimize query with selective field loading and better pagination
-  const orders = await prisma.order.findMany({
-    take: Math.min(limit, 500), // Cap limit to prevent excessive memory usage
-    skip: offset,
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      id: true,
-      createdAt: true,
-      status: true,
-      mobileNumber: true,
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
+  const cappedLimit = Math.min(limit, 500);
+
+  const [orders, totalCount] = await Promise.all([
+    prisma.order.findMany({
+      take: cappedLimit,
+      skip: offset,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        mobileNumber: true,
+        user: {
+          select: { id: true, name: true, email: true, phone: true },
         },
-      },
-      items: {
-        select: {
-          id: true,
-          productId: true,
-          quantity: true,
-          mobileNumber: true,
-          status: true,
-          product: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              price: true,
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            quantity: true,
+            mobileNumber: true,
+            status: true,
+            product: {
+              select: { id: true, name: true, description: true, price: true },
             },
           },
         },
       },
-    },
-  });
-  
-  // Get total count for pagination
-  const totalCount = await prisma.order.count();
-  
+    }),
+    prisma.order.count()
+  ]);
+
   return {
     orders,
     totalCount,

@@ -108,6 +108,16 @@ class AnnouncementController {
     }
   }
 
+  // Get active shop alert popup (public)
+  async getShopAlert(req, res) {
+    try {
+      const alert = await announcementService.getShopAlert();
+      res.status(200).json({ success: true, data: alert });
+    } catch (error) {
+      res.status(500).json({ success: false, data: null });
+    }
+  }
+
   // Get all announcements (Admin only)
   async getAllAnnouncements(req, res) {
     try {
