@@ -362,6 +362,20 @@ model ShopChatConversation {
   @@map("ShopChatConversation")
 }
 
+// External API Keys for partner integrations
+model ExternalApiKey {
+  id          Int       @id @default(autoincrement())
+  partnerName String    @db.VarChar(255)
+  apiKey      String    @unique @db.VarChar(255)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  totalOrders Int       @default(0)
+
+  @@index([apiKey], map: "ExternalApiKey_apiKey_idx")
+  @@map("ExternalApiKey")
+}
+
 // Shop Chat Messages
 model ShopChatMessage {
   id              Int                  @id @default(autoincrement())
