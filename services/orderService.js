@@ -476,7 +476,6 @@ const getOrderStatus = async (options = {}) => {
       limit: parseInt(limit),
       totalPages: Math.ceil(totalCount / limit),
       hasMore: (page * limit) < totalCount
-    },
     statusCounts
   };
 };
@@ -484,9 +483,23 @@ const getOrderStatus = async (options = {}) => {
 const getOrderHistory = async (userId) => {
   return await prisma.order.findMany({
     where: { userId },
-    include: {
+    select: {
+      id: true,
+      userId: true,
+      createdAt: true,
+      status: true,
+      mobileNumber: true,
       items: {
-        include: { product: true }
+        select: {
+          id: true,
+          mobileNumber: true,
+          status: true,
+          quantity: true,
+          updatedAt: true,
+          product: {
+            select: { id: true, name: true, description: true, price: true }
+          }
+        }
       }
     },
     orderBy: { createdAt: "desc" }
@@ -836,6 +849,9 @@ const orderService = {
       where: { status: 'Processing' },
       data: { status: 'Completed' }
     });
+    // Invalidate cached status counts so next fetchOrders returns fresh data
+    cache.delete('order_status_counts');
+    cache.delete('order_stats');
     return { count: result.count };
   },
 

@@ -1,6 +1,9 @@
 const express = require('express');
 const paymentController = require('../controllers/paymentController');
 
+const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
+
 const router = express.Router();
 
 // Public routes for shop payments (Paystack)
@@ -18,12 +21,12 @@ router.post('/verify', paymentController.verifyPaymentStatus);
 router.get('/status/:externalRef', paymentController.checkStatus);
 
 // Get all transactions (admin - should add auth middleware in production)
-router.get('/transactions', paymentController.getAllTransactions);
+router.get('/transactions', authMiddleware, adminMiddleware, paymentController.getAllTransactions);
 
 // Get orphaned payments (successful payments without orders)
-router.get('/orphaned', paymentController.getOrphanedPayments);
+router.get('/orphaned', authMiddleware, adminMiddleware, paymentController.getOrphanedPayments);
 
 // Reconcile orphaned payments - creates orders for successful payments
-router.post('/reconcile', paymentController.reconcilePayments);
+router.post('/reconcile', authMiddleware, adminMiddleware, paymentController.reconcilePayments);
 
 module.exports = router;

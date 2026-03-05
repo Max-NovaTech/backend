@@ -1,6 +1,9 @@
 const express = require('express');
 const shopController = require('../controllers/shopController');
 
+const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
+
 const router = express.Router();
 
 // Public routes - no authentication required
@@ -15,6 +18,6 @@ router.post('/order', shopController.createShopOrder);
 router.get('/track', shopController.trackOrders);
 
 // Get all shop orders (for admin)
-router.get('/orders', shopController.getAllShopOrders);
+router.get('/orders', authMiddleware, adminMiddleware, shopController.getAllShopOrders);
 
 module.exports = router;

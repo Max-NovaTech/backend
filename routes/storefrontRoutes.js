@@ -1,32 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const storefrontController = require('../controllers/storefrontController');
+const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 
 // ==================== AGENT STOREFRONT MANAGEMENT ====================
 
 // Get or create storefront slug
-router.get('/agent/:userId/slug', storefrontController.getStorefrontSlug);
+router.get('/agent/:userId/slug', authMiddleware, storefrontController.getStorefrontSlug);
 
 // Get available products for storefront (filtered by agent role)
-router.get('/agent/:userId/products/available', storefrontController.getAvailableProducts);
+router.get('/agent/:userId/products/available', authMiddleware, storefrontController.getAvailableProducts);
 
 // Get agent's storefront products
-router.get('/agent/:userId/products', storefrontController.getAgentStorefrontProducts);
+router.get('/agent/:userId/products', authMiddleware, storefrontController.getAgentStorefrontProducts);
 
 // Add product to storefront
-router.post('/agent/:userId/products', storefrontController.addProductToStorefront);
+router.post('/agent/:userId/products', authMiddleware, storefrontController.addProductToStorefront);
 
 // Update product price
-router.put('/agent/:userId/products/:productId', storefrontController.updateProductPrice);
+router.put('/agent/:userId/products/:productId', authMiddleware, storefrontController.updateProductPrice);
 
 // Remove product from storefront
-router.delete('/agent/:userId/products/:productId', storefrontController.removeProduct);
+router.delete('/agent/:userId/products/:productId', authMiddleware, storefrontController.removeProduct);
 
 // Toggle product active status
-router.patch('/agent/:userId/products/:productId/toggle', storefrontController.toggleProduct);
+router.patch('/agent/:userId/products/:productId/toggle', authMiddleware, storefrontController.toggleProduct);
 
 // Get agent's referral summary
-router.get('/agent/:userId/referrals', storefrontController.getAgentReferralSummary);
+router.get('/agent/:userId/referrals', authMiddleware, storefrontController.getAgentReferralSummary);
 
 // ==================== PUBLIC STOREFRONT ====================
 
@@ -42,12 +44,12 @@ router.post('/verify', storefrontController.verifyReferralPayment);
 // ==================== ADMIN FUNCTIONS ====================
 
 // Get all referral orders
-router.get('/admin/referrals', storefrontController.getAllReferralOrders);
+router.get('/admin/referrals', authMiddleware, adminMiddleware, storefrontController.getAllReferralOrders);
 
 // Mark commissions as paid
-router.post('/admin/commissions/pay', storefrontController.markCommissionsPaid);
+router.post('/admin/commissions/pay', authMiddleware, adminMiddleware, storefrontController.markCommissionsPaid);
 
 // Get weekly commission summary
-router.get('/admin/commissions/weekly', storefrontController.getWeeklyCommissionSummary);
+router.get('/admin/commissions/weekly', authMiddleware, adminMiddleware, storefrontController.getWeeklyCommissionSummary);
 
 module.exports = router;
