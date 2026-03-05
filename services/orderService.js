@@ -476,6 +476,7 @@ const getOrderStatus = async (options = {}) => {
       limit: parseInt(limit),
       totalPages: Math.ceil(totalCount / limit),
       hasMore: (page * limit) < totalCount
+    },
     statusCounts
   };
 };
