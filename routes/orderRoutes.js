@@ -31,6 +31,9 @@ router.post('/admin/process/order', authMiddleware, adminMiddleware, orderContro
 
 router.get('/admin/allorder', authMiddleware, adminMiddleware, orderController.getOrderStatus);
 
+// Order tracker with balance tracking and fraud detection (requires admin)
+router.get('/admin/order-tracker', authMiddleware, adminMiddleware, orderController.getOrderTracker);
+
 // Download orders for Excel export and update pending to processing (requires admin)
 router.get('/admin/download-excel', authMiddleware, adminMiddleware, orderController.downloadOrdersForExcel);
 
@@ -44,6 +47,9 @@ router.get('/user/completed/:userId', authMiddleware, orderController.getUserCom
 
 router.put('/orders/:orderId/status', authMiddleware, adminMiddleware, orderController.updateOrderItemsStatus);
 router.put('/items/:itemId/status', authMiddleware, adminMiddleware, orderController.updateSingleOrderItemStatus);
+
+// Agent: Cancel a pending order item (refunds wallet)
+router.post('/cancel/:userId/:itemId', authMiddleware, orderController.cancelOrderItem);
 
 // Direct order creation from ext_agent system
 router.post('/create-direct', authMiddleware, orderController.createDirectOrder);

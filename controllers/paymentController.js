@@ -1,6 +1,7 @@
 const paymentService = require('../services/paymentService');
 const shopService = require('../services/shopService');
 const crypto = require('crypto');
+const prisma = require('../config/db');
 
 // Initialize Paystack payment
 const initializePayment = async (req, res) => {
@@ -12,6 +13,23 @@ const initializePayment = async (req, res) => {
         success: false,
         message: 'Mobile number and amount are required'
       });
+    }
+
+    // Check product availability before initializing payment
+    if (productId) {
+      const product = await prisma.product.findUnique({ where: { id: parseInt(productId) } });
+      if (!product) {
+        return res.status(400).json({ success: false, message: 'Product not found' });
+      }
+      if (product.stock <= 0) {
+        return res.status(400).json({ success: false, message: 'Product is out of stock' });
+      }
+      if (product.shopStockClosed) {
+        return res.status(400).json({ success: false, message: 'Product is currently unavailable for purchase' });
+      }
+      if (!product.showInShop) {
+        return res.status(400).json({ success: false, message: 'Product is not available in shop' });
+      }
     }
 
     // Build callback URL

@@ -9,6 +9,8 @@ const {
   updateOrderItemsStatus,
   updateSingleOrderItemStatus,
   downloadOrdersForExcel,
+  getOrderTrackerData,
+  cancelOrderItem,
 } = require("../services/orderService");
 
 const orderService = require('../services/orderService');
@@ -682,6 +684,17 @@ exports.batchCompleteProcessing = async (req, res) => {
   }
 }
 
+// Order tracker data with balance tracking and fraud detection
+exports.getOrderTracker = async (req, res) => {
+  try {
+    const { agentId, productId, startDate, endDate, startTime, endTime } = req.query;
+    const result = await getOrderTrackerData({ agentId, productId, startDate, endDate, startTime, endTime });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Error in getOrderTracker:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
 // Download orders for Excel and update pending to processing
 exports.downloadOrdersForExcel = async (req, res) => {
   try {
@@ -696,3 +709,14 @@ exports.downloadOrdersForExcel = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 }
+
+exports.cancelOrderItem = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const orderItemId = parseInt(req.params.itemId);
+    const result = await cancelOrderItem(userId, orderItemId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+};

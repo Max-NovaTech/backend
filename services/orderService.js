@@ -1173,6 +1173,201 @@ const downloadOrdersForExcel = async ({ statusFilter, selectedProduct, selectedD
   return { items, updatedCount, totalItems: items.length };
 };
 
+
+const getOrderTrackerData = async (filters = {}) => {
+  const { agentId, productId, startDate, endDate, startTime, endTime } = filters;
+  const where = {};
+
+  // Only show agent dashboard orders (exclude shop-origin orders)
+  where.user = {
+    NOT: {
+      OR: [
+        { role: 'SHOP' },
+        { email: { contains: 'shop@' } },
+        { name: { in: ['Shop', 'shop'] } }
+      ]
+    }
+  };
+
+  if (agentId) {
+    where.userId = parseInt(agentId);
+  }
+
+  if (startDate) {
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = endDate ? new Date(endDate) : new Date(startDate);
+    end.setHours(23, 59, 59, 999);
+    if (startTime) {
+      const [h, m] = startTime.split(':');
+      start.setHours(parseInt(h), parseInt(m), 0, 0);
+    }
+    if (endTime) {
+      const [h, m] = endTime.split(':');
+      end.setHours(parseInt(h), parseInt(m), 59, 999);
+    }
+    where.createdAt = { gte: start, lte: end };
+  }
+
+  const itemsWhere = {};
+  if (productId) {
+    itemsWhere.productId = parseInt(productId);
+  }
+
+  if (Object.keys(itemsWhere).length > 0) {
+    where.items = { some: itemsWhere };
+  }
+
+  const orders = await prisma.order.findMany({
+    where,
+    include: {
+      items: {
+        ...(Object.keys(itemsWhere).length > 0 ? { where: itemsWhere } : {}),
+        include: {
+          product: { select: { id: true, name: true, description: true, price: true } }
+        }
+      },
+      user: { select: { id: true, name: true, email: true, phone: true } }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 5000
+  });
+
+  const orderIds = orders.map(o => o.id);
+  const references = orderIds.map(id => `order:${id}`);
+
+  const transactions = references.length > 0 ? await prisma.transaction.findMany({
+    where: {
+      reference: { in: references },
+      type: 'ORDER'
+    },
+    select: {
+      reference: true,
+      previousBalance: true,
+      balance: true,
+      amount: true
+    }
+  }) : [];
+
+  const txMap = {};
+  for (const tx of transactions) {
+    txMap[tx.reference] = tx;
+  }
+
+  // Fetch referral orders (storefront/Paystack-paid) linked to these orders
+  const referralOrders = orderIds.length > 0 ? await prisma.referralOrder.findMany({
+    where: { orderId: { in: orderIds } },
+    select: { orderId: true, paymentStatus: true, paymentRef: true }
+  }) : [];
+
+  const referralMap = {};
+  for (const ro of referralOrders) {
+    referralMap[ro.orderId] = ro;
+  }
+
+  const tableData = [];
+  const fraudAlerts = [];
+  const networkSummary = {
+    mtn: { count: 0, total: 0 },
+    telecel: { count: 0, total: 0 },
+    airteltigo: { count: 0, total: 0 }
+  };
+
+  for (const order of orders) {
+    const tx = txMap[`order:${order.id}`];
+    const referral = referralMap[order.id];
+    const isStorefrontOrder = !!referral;
+
+    for (const item of order.items) {
+      const productName = (item.productName || item.product?.name || '').toUpperCase();
+      const price = item.productPrice != null ? item.productPrice : (item.product?.price || 0);
+      const description = item.productDescription || item.product?.description || '';
+
+      let network = 'other';
+      if (productName.includes('MTN')) {
+        network = 'mtn';
+        networkSummary.mtn.count++;
+        networkSummary.mtn.total += price;
+      } else if (productName.includes('TELECEL') || productName.includes('VODAFONE')) {
+        network = 'telecel';
+        networkSummary.telecel.count++;
+        networkSummary.telecel.total += price;
+      } else if (productName.includes('AIRTELTIGO') || productName.includes('AIRTEL')) {
+        network = 'airteltigo';
+        networkSummary.airteltigo.count++;
+        networkSummary.airteltigo.total += price;
+      }
+
+      const row = {
+        agentName: order.user?.name || 'N/A',
+        agentId: order.user?.id,
+        orderId: order.id,
+        itemId: item.id,
+        product: item.productName || item.product?.name || 'N/A',
+        data: description,
+        balanceBefore: tx ? tx.previousBalance : null,
+        orderPrice: price,
+        balanceAfter: tx ? tx.balance : null,
+        dateTime: order.createdAt,
+        network,
+        mobileNumber: item.mobileNumber || order.mobileNumber,
+        isStorefront: isStorefrontOrder,
+        paymentMethod: isStorefrontOrder ? 'Paystack' : 'Wallet'
+      };
+
+      tableData.push(row);
+
+      // Fraud detection logic
+      if (isStorefrontOrder) {
+        // Storefront order paid via Paystack — only flag if payment was NOT verified
+        if (referral.paymentStatus !== 'Paid') {
+          fraudAlerts.push({ ...row, reason: `Storefront order - payment not verified (${referral.paymentStatus})` });
+        }
+      } else {
+        // Wallet-based agent order — flag if balance unchanged or no transaction
+        if (tx && Math.abs(tx.previousBalance - tx.balance) < 0.01) {
+          fraudAlerts.push({ ...row, reason: 'Balance unchanged after order' });
+        }
+        if (!tx) {
+          fraudAlerts.push({ ...row, reason: 'No transaction record found for order' });
+        }
+      }
+    }
+  }
+
+  return { tableData, networkSummary, fraudAlerts };
+};
+
+const cancelOrderItem = async (userId, orderItemId) => {
+  return await prisma.$transaction(async (tx) => {
+    const item = await tx.orderItem.findUnique({
+      where: { id: orderItemId },
+      include: { order: true, product: true }
+    });
+
+    if (!item) throw new Error("Order item not found");
+    if (item.order.userId !== userId) throw new Error("Unauthorized: This order does not belong to you");
+    if (item.status !== "Pending") throw new Error("Only pending orders can be cancelled");
+
+    await tx.orderItem.update({
+      where: { id: orderItemId },
+      data: { status: "Cancelled" }
+    });
+
+    const refundAmount = item.productPrice || item.product.price;
+    await createTransaction(
+      userId,
+      refundAmount,
+      "REFUND",
+      `Refund for cancelled order item #${orderItemId} (Order #${item.orderId})`,
+      `cancel:${item.orderId}:${orderItemId}`,
+      tx
+    );
+
+    return { message: "Order cancelled and refund processed", refundAmount };
+  }, { timeout: 15000 });
+};
+
 module.exports = {
   submitCart,
   getAllOrders,
@@ -1184,6 +1379,8 @@ module.exports = {
   updateOrderItemsStatus,
   updateSingleOrderItemStatus,
   downloadOrdersForExcel,
+  getOrderTrackerData,
+  cancelOrderItem,
   createDirectOrder: orderService.createDirectOrder,
   getOrdersByIds: orderService.getOrdersByIds,
   batchCompleteProcessingOrders: orderService.batchCompleteProcessingOrders,
