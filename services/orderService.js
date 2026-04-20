@@ -184,7 +184,7 @@ const processOrderItem = async (orderItemId, status) => {
 
     // Auto-refund logic for cancelled/canceled
     if (["Cancelled", "Canceled"].includes(status)) {
-      const refundAmount = orderItem.product.price * orderItem.quantity;
+      const refundAmount = (orderItem.productPrice != null ? orderItem.productPrice : orderItem.product.price) * orderItem.quantity;
       const existingRefund = await tx.transaction.findFirst({
         where: {
           userId: orderItem.order.userId,
@@ -497,8 +497,11 @@ const getOrderHistory = async (userId) => {
           status: true,
           quantity: true,
           updatedAt: true,
+          productPrice: true,
+          productName: true,
+          productDescription: true,
           product: {
-            select: { id: true, name: true, description: true, price: true }
+            select: { id: true, name: true, description: true, price: true, promoPrice: true, usePromoPrice: true }
           }
         }
       }
@@ -546,7 +549,7 @@ const updateSingleOrderItemStatus = async (itemId, newStatus) => {
         });
         
         if (!existingRefund) {
-          const refundAmount = item.product.price * item.quantity;
+          const refundAmount = (item.productPrice != null ? item.productPrice : item.product.price) * item.quantity;
           
           if (refundAmount > 0) {
             await createTransaction(
@@ -612,7 +615,7 @@ const updateOrderItemsStatus = async (orderId, newStatus) => {
           
           let totalOrderAmount = 0;
           for (const item of items) {
-            totalOrderAmount += item.product.price * item.quantity;
+            totalOrderAmount += (item.productPrice != null ? item.productPrice : item.product.price) * item.quantity;
           }
           
           // Find the original order transaction to get the amount that was deducted

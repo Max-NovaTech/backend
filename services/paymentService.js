@@ -9,7 +9,7 @@ const PAYSTACK_VERIFY_URL = 'https://api.paystack.co/transaction/verify';
 const generateExternalRef = () => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `novatech-${timestamp}-${random}`;
+  return `NOVATECH-${timestamp}-${random}`;
 };
 
 // Initialize Paystack transaction and get payment URL
