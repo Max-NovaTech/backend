@@ -40,6 +40,7 @@ model User {
   storefrontProducts StorefrontProduct[] @relation("AgentStorefront")
   referralOrders     ReferralOrder[]     @relation("AgentReferrals")
   commissionPayouts  CommissionPayout[]  @relation("AgentPayouts")
+  externalApiKeys    ExternalApiKey[]    @relation("AgentApiKeys")
 
   @@map("User")
 }
@@ -387,17 +388,20 @@ model ShopChatConversation {
   @@map("ShopChatConversation")
 }
 
-// External API Keys for partner integrations
+// External API Keys - tied to agents for wallet-based order processing
 model ExternalApiKey {
   id          Int       @id @default(autoincrement())
   partnerName String    @db.VarChar(255)
+  agentId     Int
   apiKey      String    @unique @db.VarChar(255)
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   lastUsedAt  DateTime?
   totalOrders Int       @default(0)
+  agent       User      @relation("AgentApiKeys", fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([apiKey], map: "ExternalApiKey_apiKey_idx")
+  @@index([agentId], map: "ExternalApiKey_agentId_idx")
   @@map("ExternalApiKey")
 }
 
